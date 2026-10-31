@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Environment secrets — do NOT commit the actual .env
+.env
+!.env.example
+
+# SQLite / local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# dbt artifacts
+gitpulse/dbt/target/
+gitpulse/dbt/dbt_packages/
+gitpulse/dbt/logs/
+gitpulse/dbt/.user.yml
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# mypy / type checkers
+.mypy_cache/
+.dmypy.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Logs
+*.log
+logs/
+
+# Node (if any frontend tooling)
+node_modules/

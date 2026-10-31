@@ -1,0 +1,83 @@
+version: 2
+
+models:
+  - name: stg_repositories
+    description: "Cleaned, deduplicated repository metadata extracted from raw JSONB responses."
+    columns:
+      - name: github_repo_id
+        description: "Primary surrogate identifier for repository entity."
+        tests:
+          - unique
+          - not_null
+      - name: full_name
+        description: "Standardized owner/repo slug."
+        tests:
+          - unique
+          - not_null
+      - name: visibility
+        description: "Repository access scope."
+        tests:
+          - accepted_values:
+              values: ['public', 'private', 'internal']
+      - name: default_branch
+        tests:
+          - not_null
+
+  - name: stg_commits
+    description: "Normalized Git commit records extracted from raw commit payloads."
+    columns:
+      - name: commit_sha
+        description: "Unique git commit hash."
+        tests:
+          - not_null
+      - name: repository_id
+        description: "Monitored repository foreign key."
+        tests:
+          - not_null
+      - name: author_email
+        description: "Normalized author email."
+        tests:
+          - not_null
+      - name: author_date
+        description: "Commit creation timestamp."
+        tests:
+          - not_null
+
+  - name: stg_issues
+    description: "Validated issue records excluding pull requests."
+    columns:
+      - name: github_issue_id
+        description: "Globally unique GitHub issue ID."
+        tests:
+          - unique
+          - not_null
+      - name: issue_number
+        description: "Repository-scoped issue index."
+        tests:
+          - not_null
+      - name: state
+        description: "Current lifecycle state."
+        tests:
+          - accepted_values:
+              values: ['open', 'closed']
+
+  - name: stg_pull_requests
+    description: "Normalized pull request events with cycle time metadata."
+    columns:
+      - name: github_pr_id
+        description: "Globally unique GitHub PR ID."
+        tests:
+          - unique
+          - not_null
+      - name: pr_number
+        description: "Repository-scoped PR index."
+        tests:
+          - not_null
+      - name: state
+        tests:
+          - accepted_values:
+              values: ['open', 'closed']
+      - name: standardized_status
+        tests:
+          - accepted_values:
+              values: ['open', 'merged', 'closed_unmerged']

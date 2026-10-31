@@ -1,0 +1,113 @@
+version: 2
+
+models:
+  - name: dim_repositories
+    description: "Conformed dimension table representing monitored GitHub repositories with lifetime activity aggregates."
+    columns:
+      - name: repository_id
+        description: "Surrogate key for repository."
+        tests:
+          - unique
+          - not_null
+      - name: full_name
+        description: "Repository owner/name unique slug."
+        tests:
+          - unique
+          - not_null
+      - name: visibility
+        tests:
+          - accepted_values:
+              values: ['public', 'private', 'internal']
+
+  - name: dim_contributors
+    description: "Conformed dimension table representing contributors across all monitored projects."
+    columns:
+      - name: author_login
+        description: "Primary key identifier for contributor."
+        tests:
+          - unique
+          - not_null
+      - name: contributor_level
+        tests:
+          - accepted_values:
+              values: ['core', 'regular', 'casual', 'reporter']
+
+  - name: fct_commits
+    description: "Fact table recording individual git commit events and line change stats."
+    columns:
+      - name: commit_sha
+        description: "Unique commit SHA key."
+        tests:
+          - unique
+          - not_null
+      - name: repository_id
+        description: "Foreign key to dim_repositories."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_repositories')
+              field: repository_id
+      - name: author_login
+        tests:
+          - not_null
+      - name: commit_date
+        tests:
+          - not_null
+
+  - name: fct_pull_requests
+    description: "Fact table recording pull request lifecycles, review cycles, and merge durations."
+    columns:
+      - name: github_pr_id
+        description: "Unique GitHub pull request identifier."
+        tests:
+          - unique
+          - not_null
+      - name: repository_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_repositories')
+              field: repository_id
+      - name: standardized_status
+        tests:
+          - accepted_values:
+              values: ['open', 'merged', 'closed_unmerged']
+
+  - name: fct_issues
+    description: "Fact table recording issue resolutions, comments, and time-to-close metrics."
+    columns:
+      - name: github_issue_id
+        description: "Unique GitHub issue identifier."
+        tests:
+          - unique
+          - not_null
+      - name: repository_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_repositories')
+              field: repository_id
+      - name: state
+        tests:
+          - accepted_values:
+              values: ['open', 'closed']
+
+  - name: mart_repository_activity
+    description: "Analytics mart aggregating daily development velocity, commits, PRs, and 7/30-day trends."
+    columns:
+      - name: repository_id
+        tests:
+          - not_null
+      - name: activity_date
+        tests:
+          - not_null
+
+  - name: mart_contributor_activity
+    description: "Analytics mart profiling contributor velocity, commit frequency, and PR merge efficiency."
+    columns:
+      - name: author_login
+        tests:
+          - not_null
+      - name: repository_id
+        tests:
+          - not_null

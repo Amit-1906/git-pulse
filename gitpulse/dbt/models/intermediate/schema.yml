@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: int_pull_request_lifecycle
+    description: "Evaluates pull request cycle times: elapsed duration, open duration, and merged duration."
+    columns:
+      - name: github_pr_id
+        tests:
+          - unique
+          - not_null
+      - name: repository_id
+        tests:
+          - not_null
+      - name: standardized_status
+        tests:
+          - accepted_values:
+              values: ['open', 'merged', 'closed_unmerged']
+
+  - name: int_issue_lifecycle
+    description: "Computes issue time-to-close and resolution latency cohorts."
+    columns:
+      - name: github_issue_id
+        tests:
+          - unique
+          - not_null
+      - name: repository_id
+        tests:
+          - not_null
+
+  - name: int_contributor_activity
+    description: "Aggregates multifold contributions (commits, PRs, issues) by author and repository."
+    columns:
+      - name: author_login
+        tests:
+          - not_null
+      - name: contributor_tier
+        tests:
+          - accepted_values:
+              values: ['core_maintainer', 'regular_contributor', 'casual_contributor', 'community_reporter']
+
+  - name: int_repository_activity
+    description: "Daily time-series aggregation of commits, PRs, and issues by repository."
+    columns:
+      - name: activity_date
+        tests:
+          - not_null
+      - name: repository_id
+        tests:
+          - not_null

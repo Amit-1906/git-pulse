@@ -1,0 +1,68 @@
+version: 2
+
+sources:
+  - name: github_raw
+    description: "PostgreSQL Bronze layer containing unmodified GitHub REST API responses and repository metadata"
+    database: "{{ env_var('POSTGRES_DB', 'gitpulse_db') }}"
+    schema: public
+    tables:
+      - name: raw_repositories
+        description: "Bronze snapshots of repository metadata from /repos/{owner}/{repo}"
+        columns:
+          - name: github_repo_id
+            description: "GitHub stable numeric repository identifier"
+          - name: full_name
+            description: "Repository full name at time of extraction (owner/repo)"
+          - name: raw_payload
+            description: "Unmodified JSONB response payload"
+          - name: extracted_at
+            description: "UTC extraction timestamp"
+
+      - name: raw_commits
+        description: "Bronze raw commit payloads from /repos/{owner}/{repo}/commits"
+        columns:
+          - name: repository_id
+            description: "Internal repository foreign key"
+          - name: commit_sha
+            description: "40-character Git commit hash"
+          - name: raw_payload
+            description: "Unmodified commit JSONB payload"
+          - name: extracted_at
+            description: "UTC extraction timestamp"
+
+      - name: raw_issues
+        description: "Bronze raw issue payloads from /repos/{owner}/{repo}/issues (excluding PRs)"
+        columns:
+          - name: repository_id
+            description: "Internal repository foreign key"
+          - name: github_issue_id
+            description: "GitHub unique issue ID"
+          - name: issue_number
+            description: "Repository-scoped issue sequence number"
+          - name: raw_payload
+            description: "Unmodified issue JSONB payload"
+          - name: extracted_at
+            description: "UTC extraction timestamp"
+
+      - name: raw_pull_requests
+        description: "Bronze raw pull request payloads from /repos/{owner}/{repo}/pulls"
+        columns:
+          - name: repository_id
+            description: "Internal repository foreign key"
+          - name: github_pr_id
+            description: "GitHub unique pull request ID"
+          - name: pr_number
+            description: "Repository-scoped pull request number"
+          - name: raw_payload
+            description: "Unmodified pull request JSONB payload"
+          - name: extracted_at
+            description: "UTC extraction timestamp"
+
+      - name: repositories
+        description: "Operational registry of monitored repositories"
+        columns:
+          - name: id
+            description: "Primary key identifier"
+          - name: full_name
+            description: "Unique repository full name (owner/name)"
+
