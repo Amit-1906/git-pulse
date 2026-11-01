@@ -1,18 +1,66 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
+    "frontend": {
+      "root": "gitpulse/frontend",
+      "runtime": "container",
+      "entrypoint": "Dockerfile.vercel",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "backend",
+          "format": "url",
+          "env": "BACKEND_URL"
+        }
+      ]
+    },
     "backend": {
       "root": "gitpulse/backend",
       "framework": "fastapi",
-      "buildCommand": "pip install -r requirements.txt",
-      "runtime": "python3.10"
+      "entrypoint": "app.main:app"
     }
   },
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/api",
       "destination": {
         "service": "backend"
+      }
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/docs",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/docs/(.*)",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/openapi.json",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/redoc",
+      "destination": {
+        "service": "backend"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "frontend"
       }
     }
   ]

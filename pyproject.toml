@@ -27,3 +27,4 @@ filterwarnings = [
 [tool.setuptools.packages.find]
 where = ["gitpulse/backend"]
 include = ["app*"]
+

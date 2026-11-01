@@ -11,21 +11,32 @@ class GitPulseAPIClient:
     """HTTP client for the GitPulse FastAPI backend with graceful offline fallbacks."""
 
     def __init__(self, base_url: Optional[str] = None):
-        # Resolution order:
-        #   1. Explicit base_url argument (tests / local override)
-        #   2. BACKEND_URL — injected by Vercel service binding (base URL, no path)
-        #      The binding provides the service root, so we append /api/v1 ourselves.
-        #   3. API_BASE_URL — set manually in Streamlit Cloud / Railway / local .env
-        #      Expected to already contain the full path (e.g. https://x.vercel.app/api/v1)
-        #   4. Localhost default for local development
+        # Multi-tier Resolution Order for Production & Local Development:
+        #   1. Explicit base_url argument (testing / local overrides)
+        #   2. BACKEND_URL — injected by Vercel service binding between frontend and backend
+        #   3. VERCEL_URL — system variable injected by Vercel for the shared deployment domain
+        #   4. API_BASE_URL — manual environment variable configuration
+        #   5. Localhost default for standalone local development
         if base_url:
-            self.base_url = base_url
+            self.base_url = base_url.rstrip("/")
         elif os.getenv("BACKEND_URL"):
-            # Strip any trailing slash then append the versioned API prefix
-            self.base_url = os.getenv("BACKEND_URL", "").rstrip("/") + "/api/v1"
+            b_url = os.getenv("BACKEND_URL", "").rstrip("/")
+            if b_url.endswith("/api/v1"):
+                self.base_url = b_url
+            elif b_url.endswith("/api"):
+                self.base_url = b_url + "/v1"
+            else:
+                self.base_url = b_url + "/api/v1"
+        elif os.getenv("VERCEL_URL"):
+            v_host = os.getenv("VERCEL_URL", "").strip().rstrip("/")
+            if not v_host.startswith("http://") and not v_host.startswith("https://"):
+                v_host = f"https://{v_host}"
+            self.base_url = f"{v_host}/api/v1"
+        elif os.getenv("API_BASE_URL"):
+            self.base_url = os.getenv("API_BASE_URL", "").rstrip("/")
         else:
-            self.base_url = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
-        self.timeout = 5.0
+            self.base_url = "http://localhost:8000/api/v1"
+        self.timeout = 10.0
 
     # ------------------------------------------------------------------
     # Private helpers

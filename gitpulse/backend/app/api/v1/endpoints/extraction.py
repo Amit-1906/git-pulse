@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -38,7 +39,12 @@ def start_extraction(
     Enforces concurrency lock: rejects overlapping runs for the same repository.
     Applies incremental checkpoints unless explicitly disabled.
     """
+    is_vercel = bool(os.getenv("VERCEL"))
     is_sync = run_sync if isinstance(run_sync, bool) else False
+    if is_vercel and not is_sync:
+        # In Vercel serverless functions, background tasks freeze when response finishes.
+        # Run synchronously with safe pagination bounds to guarantee persistence.
+        is_sync = True
 
     job = extraction_engine.create_job(
         db=db,
@@ -50,7 +56,8 @@ def start_extraction(
     )
 
     if is_sync:
-        job = extraction_engine.run_job(db, job.job_id, max_pages=request.max_pages)
+        max_p = min(request.max_pages, 5) if (is_vercel and request.max_pages) else (request.max_pages or (5 if is_vercel else None))
+        job = extraction_engine.run_job(db, job.job_id, max_pages=max_p)
     else:
         background_tasks.add_task(
             execute_extraction_job_background,

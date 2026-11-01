@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "gitpulse-backend"
+version = "0.1.0"
+description = "GitPulse FastAPI Analytical Backend"
+requires-python = ">=3.10"
+
+[tool.vercel]
+entrypoint = "app.main:app"

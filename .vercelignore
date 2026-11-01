@@ -12,10 +12,7 @@ gitpulse/backend/tests/
 gitpulse/backend/.pytest_cache/
 .pytest_cache/
 
-# Frontend (deployed separately via Streamlit Cloud / Railway)
-gitpulse/frontend/
-
-# dbt transformation layer (not needed at API runtime)
+# dbt transformation layer (not needed at API/UI runtime)
 gitpulse/dbt/
 
 # Docker files
@@ -48,3 +45,4 @@ build/
 
 # Node modules if any exist
 node_modules/
+

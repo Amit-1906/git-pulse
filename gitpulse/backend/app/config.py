@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     BACKEND_PORT: int = 8000
 
     # PostgreSQL Database Configuration
+    DATABASE_URL: Optional[str] = None
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "gitpulse"
@@ -45,6 +46,10 @@ class Settings(BaseSettings):
 
     # GitHub REST API Configuration
     GITHUB_API_BASE_URL: str = "https://api.github.com"
+    GITHUB_TOKEN: Optional[str] = Field(
+        default=None,
+        description="Alias for GITHUB_ACCESS_TOKEN",
+    )
     GITHUB_ACCESS_TOKEN: Optional[str] = Field(
         default=None,
         description="Optional personal access token to raise rate limit from 60 to 5000 req/hr",
@@ -53,16 +58,14 @@ class Settings(BaseSettings):
     GITHUB_RATE_LIMIT_BUFFER: int = 50
 
     # CORS Settings
-    # In production: override this with the actual Streamlit Cloud / Railway URL, e.g.:
-    #   CORS_ORIGINS=["https://your-app.streamlit.app","https://your-other-frontend.com"]
+    # Supports Vercel shared domains, preview URLs, Streamlit frontend, and localhost
     CORS_ORIGINS: List[str] = [
-        # Local development
         "http://localhost:8501",
         "http://127.0.0.1:8501",
         "http://localhost:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
-        # Streamlit Community Cloud wildcard subdomains (adjust to your exact app URL)
+        "https://*.vercel.app",
         "https://*.streamlit.app",
     ]
 
@@ -77,18 +80,41 @@ class Settings(BaseSettings):
     DBT_PROJECT_DIR: str = "./dbt"
     DBT_PROFILES_DIR: str = "./dbt"
 
+    @field_validator("GITHUB_ACCESS_TOKEN", mode="before")
+    @classmethod
+    def resolve_github_token(cls, v: Optional[str], info) -> Optional[str]:
+        if isinstance(v, str) and v.strip():
+            return v.strip()
+        tok = info.data.get("GITHUB_TOKEN")
+        if isinstance(tok, str) and tok.strip():
+            return tok.strip()
+        return None
+
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     @classmethod
     def assemble_db_connection(cls, v: Optional[str], info) -> str:
+        uri = None
         if isinstance(v, str) and v.strip():
-            return v
-        values = info.data
-        user = values.get("POSTGRES_USER", "gitpulse")
-        password = values.get("POSTGRES_PASSWORD", "gitpulse_secret")
-        server = values.get("POSTGRES_SERVER", "localhost")
-        port = values.get("POSTGRES_PORT", 5432)
-        db = values.get("POSTGRES_DB", "gitpulse_db")
-        return f"postgresql+psycopg2://{user}:{password}@{server}:{port}/{db}"
+            uri = v.strip()
+        else:
+            db_url = info.data.get("DATABASE_URL")
+            if isinstance(db_url, str) and db_url.strip():
+                uri = db_url.strip()
+            else:
+                values = info.data
+                user = values.get("POSTGRES_USER", "gitpulse")
+                password = values.get("POSTGRES_PASSWORD", "gitpulse_secret")
+                server = values.get("POSTGRES_SERVER", "localhost")
+                port = values.get("POSTGRES_PORT", 5432)
+                db = values.get("POSTGRES_DB", "gitpulse_db")
+                uri = f"postgresql+psycopg2://{user}:{password}@{server}:{port}/{db}"
+
+        # Standardize postgres:// or bare postgresql:// to postgresql+psycopg2://
+        if uri.startswith("postgres://"):
+            uri = "postgresql+psycopg2://" + uri[len("postgres://"):]
+        elif uri.startswith("postgresql://") and not uri.startswith("postgresql+psycopg2://"):
+            uri = "postgresql+psycopg2://" + uri[len("postgresql://"):]
+        return uri
 
     @property
     def is_production(self) -> bool:
