@@ -1,0 +1,50 @@
+# Vercel ignore — exclude files not needed for API deployment
+# This prevents Vercel from scanning test files for entrypoints
+.git
+.gitignore
+.env
+.env.*
+*.env
+*.md
+
+# Exclude test directories entirely from the build
+gitpulse/backend/tests/
+gitpulse/backend/.pytest_cache/
+.pytest_cache/
+
+# Frontend (deployed separately via Streamlit Cloud / Railway)
+gitpulse/frontend/
+
+# dbt transformation layer (not needed at API runtime)
+gitpulse/dbt/
+
+# Docker files
+gitpulse/docker/
+docker-compose.yml
+gitpulse/docker-compose.yml
+
+# Documentation
+gitpulse/docs/
+docs/
+
+# Scripts (local dev only)
+gitpulse/scripts/
+
+# Migrations (run separately, not at API boot)
+gitpulse/migrations/
+
+# Local SQLite fallback database
+*.db
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Node modules if any exist
+node_modules/

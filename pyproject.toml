@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "gitpulse"
+version = "0.1.0"
+description = "End-to-End ELT Platform for GitHub Activity Analytics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[tool.vercel]
+entrypoint = "gitpulse/backend/app/main.py"
+
+[tool.pytest.ini_options]
+testpaths = ["gitpulse/backend/tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.setuptools.packages.find]
+where = ["gitpulse/backend"]
+include = ["app*"]

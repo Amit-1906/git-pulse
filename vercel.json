@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "name": "gitpulse-api",
+  "builds": [
+    {
+      "src": "gitpulse/backend/app/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxLambdaSize": "50mb"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "gitpulse/backend/app/main.py"
+    }
+  ],
+  "functions": {
+    "gitpulse/backend/app/main.py": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}
