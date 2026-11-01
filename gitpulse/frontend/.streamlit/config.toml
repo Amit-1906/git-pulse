@@ -1,9 +1,9 @@
 [theme]
 base = "dark"
-primaryColor = "#3b82f6"
-backgroundColor = "#0a0d14"
-secondaryBackgroundColor = "#0f141e"
-textColor = "#f1f5f9"
+primaryColor = "#06b6d4"
+backgroundColor = "#080c16"
+secondaryBackgroundColor = "#0d1424"
+textColor = "#f8fafc"
 font = "sans serif"
 
 [server]
@@ -18,3 +18,4 @@ gatherUsageStats = false
 [client]
 showErrorDetails = false
 toolbarMode = "minimal"
+showSidebarNavigation = false

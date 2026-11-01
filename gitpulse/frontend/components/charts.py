@@ -1,6 +1,6 @@
 """
-GitPulse Plotly Chart Library v2.0
-Implements dark obsidian design system tokens, crisp margins, and unified tooltips.
+GitPulse Reference-Matched Plotly Chart Library v3.0
+Implements exact color palettes, spline curves, donut center text, and dual-bar grouped charts from reference.
 """
 from typing import List, Optional
 import plotly.graph_objects as go
@@ -14,36 +14,37 @@ _THEME = dict(
         family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         size=11,
     ),
-    margin=dict(l=20, r=20, t=36, b=20),
+    margin=dict(l=24, r=20, t=32, b=24),
     xaxis=dict(
-        gridcolor="#1f2736",
-        zerolinecolor="#1f2736",
-        linecolor="#2b364a",
+        gridcolor="#1e293b",
+        zerolinecolor="#1e293b",
+        linecolor="#2e3e58",
         showline=True,
         tickfont=dict(size=10, color="#94a3b8"),
     ),
     yaxis=dict(
-        gridcolor="#1f2736",
-        zerolinecolor="#1f2736",
-        linecolor="#2b364a",
+        gridcolor="#1e293b",
+        zerolinecolor="#1e293b",
+        linecolor="#2e3e58",
         showline=True,
         tickfont=dict(size=10, color="#94a3b8"),
     ),
     legend=dict(
-        bgcolor="rgba(15,20,30,0.7)",
-        bordercolor="#1f2736",
+        bgcolor="rgba(11,19,41,0.75)",
+        bordercolor="#1e293b",
         borderwidth=1,
-        font=dict(size=11, color="#f1f5f9"),
+        font=dict(size=10, color="#f8fafc"),
     ),
 )
 
-_BLUE = "#3b82f6"
+_CYAN = "#38bdf8"
+_BLUE = "#2563eb"
 _BLUE_LIGHT = "#60a5fa"
 _VIOLET = "#8b5cf6"
+_PURPLE = "#a855f7"
 _GREEN = "#10b981"
 _AMBER = "#f59e0b"
-_RED = "#ef4444"
-_TEAL = "#14b8a6"
+_ROSE = "#f43f5e"
 _MUTED = "#64748b"
 
 
@@ -53,6 +54,182 @@ def _layout(**overrides) -> dict:
     return base
 
 
+def create_commit_activity_reference_chart(
+    dates: List[str],
+    commits: List[int],
+) -> go.Figure:
+    """Reference-matched Commit Activity Over Time line/area chart with cyan/blue gradient."""
+    if not dates:
+        return _empty_figure("No commit history available")
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=dates,
+            y=commits,
+            name="Commits",
+            mode="lines+markers",
+            line=dict(color=_CYAN, width=2.5, shape="spline"),
+            marker=dict(size=5, color=_CYAN, line=dict(color="#ffffff", width=1)),
+            fill="tozeroy",
+            fillcolor="rgba(37, 99, 235, 0.25)",
+        )
+    )
+    fig.update_layout(
+        **_layout(
+            title=dict(text="Commit Activity Over Time", font=dict(color="#f8fafc", size=12)),
+            hovermode="x unified",
+            showlegend=False,
+            margin=dict(l=30, r=20, t=30, b=30),
+        )
+    )
+    return fig
+
+
+def create_contributors_reference_bar(
+    names: List[str],
+    commits: List[int],
+) -> go.Figure:
+    """Reference-matched Top Contributors horizontal bar chart with rainbow-like pastel palette."""
+    if not names:
+        return _empty_figure("No contributor metrics available")
+
+    colors = [
+        "#38bdf8",  # Cyan
+        "#60a5fa",  # Sky
+        "#818cf8",  # Indigo
+        "#a855f7",  # Purple
+        "#fbbf24",  # Amber
+        "#f97316",  # Orange
+        "#34d399",  # Emerald
+        "#f43f5e",  # Rose
+    ][: len(names)]
+
+    fig = go.Figure(
+        go.Bar(
+            x=commits,
+            y=names,
+            orientation="h",
+            marker=dict(
+                color=colors,
+                line=dict(color="#1e293b", width=0.5),
+            ),
+            text=[f"{v:,}" for v in commits],
+            textposition="auto",
+            textfont=dict(color="#f8fafc", size=10),
+        )
+    )
+    fig.update_layout(
+        **_layout(
+            title=dict(text="Top Contributors", font=dict(color="#f8fafc", size=12)),
+            yaxis=dict(autorange="reversed", gridcolor="#1e293b"),
+            xaxis=dict(title="", gridcolor="#1e293b"),
+            margin=dict(l=70, r=20, t=30, b=20),
+        )
+    )
+    return fig
+
+
+def create_issue_donut_reference_chart(
+    open_cnt: int,
+    closed_cnt: int,
+    total_issues_label: str = "1.8K",
+) -> go.Figure:
+    """Reference-matched Issue Status Distribution donut chart with center text."""
+    total = open_cnt + closed_cnt
+    if total == 0:
+        return _empty_figure("No issue metrics available")
+
+    # If all issues are closed or open, provide structured segmentation
+    labels = ["Open", "Closed"]
+    values = [open_cnt, closed_cnt]
+    colors = [_CYAN, _GREEN]
+
+    fig = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.68,
+                marker=dict(
+                    colors=colors,
+                    line=dict(color="#070c18", width=2.5),
+                ),
+                textinfo="percent",
+                hoverinfo="label+value+percent",
+            )
+        ]
+    )
+    fig.add_annotation(
+        text=f"<b>{total_issues_label}</b><br><span style='font-size:10px; color:#94a3b8;'>Issues</span>",
+        xref="paper",
+        yref="paper",
+        x=0.5,
+        y=0.5,
+        showarrow=False,
+        font=dict(color="#ffffff", size=14),
+    )
+    fig.update_layout(
+        **_layout(
+            title=dict(text="Issue Status Distribution", font=dict(color="#f8fafc", size=12)),
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.08,
+                xanchor="center",
+                x=0.5,
+            ),
+            margin=dict(l=15, r=15, t=30, b=30),
+        )
+    )
+    return fig
+
+
+def create_pr_dual_bar_chart(
+    periods: List[str],
+    opened_counts: List[int],
+    merged_counts: List[int],
+) -> go.Figure:
+    """Reference-matched Pull Request Statistics dual-column bar chart (Opened in Purple, Merged in Cyan)."""
+    if not periods:
+        return _empty_figure("No PR volume records")
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=periods,
+            y=opened_counts,
+            name="Opened",
+            marker=dict(color=_PURPLE, line=dict(color="#1e293b", width=0.5)),
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            x=periods,
+            y=merged_counts,
+            name="Merged",
+            marker=dict(color=_CYAN, line=dict(color="#1e293b", width=0.5)),
+        )
+    )
+    fig.update_layout(
+        **_layout(
+            title=dict(text="Pull Request Statistics", font=dict(color="#f8fafc", size=12)),
+            barmode="group",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1,
+            ),
+            margin=dict(l=25, r=15, t=30, b=25),
+        )
+    )
+    return fig
+
+
+# ── Secondary Charts ───────────────────────────────────────────────
 def create_activity_area_chart(
     dates: List[str],
     commits: List[int],
@@ -69,9 +246,9 @@ def create_activity_area_chart(
             y=commits,
             name="Commits",
             mode="lines",
-            line=dict(color=_BLUE_LIGHT, width=2.5, shape="spline"),
+            line=dict(color=_CYAN, width=2.5, shape="spline"),
             fill="tozeroy",
-            fillcolor="rgba(59,130,246,0.12)",
+            fillcolor="rgba(56,189,248,0.12)",
         )
     )
     fig.add_trace(
@@ -80,21 +257,15 @@ def create_activity_area_chart(
             y=prs,
             name="Pull Requests",
             mode="lines",
-            line=dict(color=_VIOLET, width=2.5, shape="spline"),
+            line=dict(color=_PURPLE, width=2.5, shape="spline"),
             fill="tozeroy",
-            fillcolor="rgba(139,92,246,0.10)",
+            fillcolor="rgba(168,85,247,0.10)",
         )
     )
     fig.update_layout(
         **_layout(
             hovermode="x unified",
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=1.02,
-                xanchor="right",
-                x=1,
-            ),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         )
     )
     return fig
@@ -103,7 +274,7 @@ def create_activity_area_chart(
 def create_pr_status_donut(
     open_cnt: int, merged_cnt: int, closed_cnt: int
 ) -> go.Figure:
-    """Modern donut breakdown of PR lifecycle resolution states."""
+    """Donut breakdown of PR lifecycle resolution states."""
     total = open_cnt + merged_cnt + closed_cnt
     if total == 0:
         return _empty_figure("No PR data available")
@@ -115,8 +286,8 @@ def create_pr_status_donut(
                 values=[merged_cnt, open_cnt, closed_cnt],
                 hole=0.68,
                 marker=dict(
-                    colors=[_VIOLET, _BLUE_LIGHT, _MUTED],
-                    line=dict(color="#0a0d14", width=2),
+                    colors=[_PURPLE, _CYAN, _MUTED],
+                    line=dict(color="#070c18", width=2),
                 ),
                 textinfo="percent",
                 hoverinfo="label+value+percent",
@@ -126,13 +297,7 @@ def create_pr_status_donut(
     fig.update_layout(
         **_layout(
             showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.05,
-                xanchor="center",
-                x=0.5,
-            ),
+            legend=dict(orientation="h", yanchor="top", y=-0.05, xanchor="center", x=0.5),
             margin=dict(l=10, r=10, t=20, b=30),
         )
     )
@@ -153,7 +318,7 @@ def create_issue_state_donut(open_cnt: int, closed_cnt: int) -> go.Figure:
                 hole=0.68,
                 marker=dict(
                     colors=[_AMBER, _GREEN],
-                    line=dict(color="#0a0d14", width=2),
+                    line=dict(color="#070c18", width=2),
                 ),
                 textinfo="percent",
                 hoverinfo="label+value+percent",
@@ -163,13 +328,7 @@ def create_issue_state_donut(open_cnt: int, closed_cnt: int) -> go.Figure:
     fig.update_layout(
         **_layout(
             showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="top",
-                y=-0.05,
-                xanchor="center",
-                x=0.5,
-            ),
+            legend=dict(orientation="h", yanchor="top", y=-0.05, xanchor="center", x=0.5),
             margin=dict(l=10, r=10, t=20, b=30),
         )
     )
@@ -179,30 +338,7 @@ def create_issue_state_donut(open_cnt: int, closed_cnt: int) -> go.Figure:
 def create_contributors_leaderboard(
     names: List[str], commits: List[int]
 ) -> go.Figure:
-    """Horizontal bar chart for contributor engagement."""
-    if not names:
-        return _empty_figure("No contributor metrics available")
-
-    fig = go.Figure(
-        go.Bar(
-            x=commits,
-            y=names,
-            orientation="h",
-            marker=dict(
-                color=commits,
-                colorscale=[[0, _BLUE], [1, _VIOLET]],
-                line=dict(color="#2b364a", width=0.5),
-            ),
-        )
-    )
-    fig.update_layout(
-        **_layout(
-            yaxis=dict(autorange="reversed", gridcolor="#1f2736"),
-            xaxis=dict(title="Attributed Commits", gridcolor="#1f2736"),
-            margin=dict(l=80, r=20, t=20, b=20),
-        )
-    )
-    return fig
+    return create_contributors_reference_bar(names, commits)
 
 
 def create_commits_bar_chart(days: List[str], counts: List[int]) -> go.Figure:
@@ -215,16 +351,11 @@ def create_commits_bar_chart(days: List[str], counts: List[int]) -> go.Figure:
             x=days,
             y=counts,
             marker_color=_BLUE,
-            marker_line=dict(color=_BLUE_LIGHT, width=0.5),
+            marker_line=dict(color=_CYAN, width=0.5),
             opacity=0.9,
         )
     )
-    fig.update_layout(
-        **_layout(
-            yaxis=dict(title="Commits", gridcolor="#1f2736"),
-            margin=dict(l=30, r=20, t=20, b=30),
-        )
-    )
+    fig.update_layout(**_layout(yaxis=dict(title="Commits", gridcolor="#1e293b")))
     return fig
 
 
@@ -237,16 +368,15 @@ def create_merge_time_histogram(hours_list: List[float]) -> go.Figure:
         go.Histogram(
             x=hours_list,
             nbinsx=18,
-            marker_color=_VIOLET,
-            marker_line=dict(color="#0a0d14", width=0.5),
+            marker_color=_PURPLE,
+            marker_line=dict(color="#070c18", width=0.5),
             opacity=0.88,
         )
     )
     fig.update_layout(
         **_layout(
-            xaxis=dict(title="Hours to Merge", gridcolor="#1f2736"),
-            yaxis=dict(title="PR Count", gridcolor="#1f2736"),
-            margin=dict(l=30, r=20, t=20, b=30),
+            xaxis=dict(title="Hours to Merge", gridcolor="#1e293b"),
+            yaxis=dict(title="PR Count", gridcolor="#1e293b"),
         )
     )
     return fig
@@ -261,16 +391,15 @@ def create_issue_resolution_histogram(days_list: List[float]) -> go.Figure:
         go.Histogram(
             x=days_list,
             nbinsx=16,
-            marker_color=_TEAL,
-            marker_line=dict(color="#0a0d14", width=0.5),
+            marker_color=_CYAN,
+            marker_line=dict(color="#070c18", width=0.5),
             opacity=0.88,
         )
     )
     fig.update_layout(
         **_layout(
-            xaxis=dict(title="Days to Close", gridcolor="#1f2736"),
-            yaxis=dict(title="Closed Count", gridcolor="#1f2736"),
-            margin=dict(l=30, r=20, t=20, b=30),
+            xaxis=dict(title="Days to Close", gridcolor="#1e293b"),
+            yaxis=dict(title="Closed Count", gridcolor="#1e293b"),
         )
     )
     return fig
@@ -280,7 +409,7 @@ def create_daily_activity_line(
     dates: List[str],
     values: List[int],
     name: str = "Velocity",
-    color: str = _BLUE_LIGHT,
+    color: str = _CYAN,
 ) -> go.Figure:
     """Single-series smooth line chart."""
     if not dates:
@@ -295,16 +424,10 @@ def create_daily_activity_line(
             line=dict(color=color, width=2.5, shape="spline"),
             marker=dict(size=4, color=color),
             fill="tozeroy",
-            fillcolor=f"rgba(96,165,250,0.12)",
+            fillcolor="rgba(56,189,248,0.12)",
         )
     )
-    fig.update_layout(
-        **_layout(
-            hovermode="x unified",
-            yaxis=dict(gridcolor="#1f2736"),
-            margin=dict(l=30, r=20, t=20, b=30),
-        )
-    )
+    fig.update_layout(**_layout(hovermode="x unified", yaxis=dict(gridcolor="#1e293b")))
     return fig
 
 
@@ -315,21 +438,20 @@ def create_pr_size_distribution(
     if not categories:
         return _empty_figure("No size data available")
 
-    colors = [_GREEN, _BLUE_LIGHT, _AMBER, _RED, _MUTED][: len(categories)]
+    colors = [_GREEN, _CYAN, _AMBER, _ROSE, _MUTED][: len(categories)]
     fig = go.Figure(
         go.Bar(
             x=counts,
             y=categories,
             orientation="h",
             marker_color=colors,
-            marker_line=dict(color="#0a0d14", width=0.5),
+            marker_line=dict(color="#070c18", width=0.5),
         )
     )
     fig.update_layout(
         **_layout(
-            yaxis=dict(autorange="reversed", gridcolor="#1f2736"),
-            xaxis=dict(title="PR Count", gridcolor="#1f2736"),
-            margin=dict(l=90, r=20, t=20, b=30),
+            yaxis=dict(autorange="reversed", gridcolor="#1e293b"),
+            xaxis=dict(title="PR Count", gridcolor="#1e293b"),
         )
     )
     return fig
@@ -342,28 +464,23 @@ def create_resolution_cohort_bar(
     if not cohort_names:
         return _empty_figure("No cohort metrics")
 
-    colors = [_GREEN, _BLUE_LIGHT, _AMBER, _RED, _MUTED][: len(cohort_names)]
+    colors = [_GREEN, _CYAN, _AMBER, _ROSE, _MUTED][: len(cohort_names)]
     fig = go.Figure(
         go.Bar(
             x=cohort_names,
             y=counts,
             marker_color=colors,
-            marker_line=dict(color="#0a0d14", width=0.5),
+            marker_line=dict(color="#070c18", width=0.5),
         )
     )
-    fig.update_layout(
-        **_layout(
-            yaxis=dict(title="Issues", gridcolor="#1f2736"),
-            margin=dict(l=30, r=20, t=20, b=30),
-        )
-    )
+    fig.update_layout(**_layout(yaxis=dict(title="Issues", gridcolor="#1e293b")))
     return fig
 
 
 def create_quality_gauge(pass_rate: float) -> go.Figure:
     """Precision gauge meter for dbt Core data assertions."""
     bar_color = (
-        _GREEN if pass_rate >= 90 else (_AMBER if pass_rate >= 75 else _RED)
+        _GREEN if pass_rate >= 90 else (_AMBER if pass_rate >= 75 else _ROSE)
     )
     fig = go.Figure(
         go.Indicator(
@@ -379,9 +496,9 @@ def create_quality_gauge(pass_rate: float) -> go.Figure:
                 bar=dict(color=bar_color, thickness=0.28),
                 bgcolor="rgba(0,0,0,0)",
                 borderwidth=1,
-                bordercolor="#1f2736",
+                bordercolor="#1e293b",
                 steps=[
-                    dict(range=[0, 75], color="rgba(239,68,68,0.1)"),
+                    dict(range=[0, 75], color="rgba(244,63,94,0.1)"),
                     dict(range=[75, 90], color="rgba(245,158,11,0.1)"),
                     dict(range=[90, 100], color="rgba(16,185,129,0.1)"),
                 ],
@@ -413,12 +530,7 @@ def create_pipeline_latency_chart(
             marker=dict(size=5, color=_GREEN),
         )
     )
-    fig.update_layout(
-        **_layout(
-            yaxis=dict(title="Seconds", gridcolor="#1f2736"),
-            margin=dict(l=30, r=20, t=20, b=30),
-        )
-    )
+    fig.update_layout(**_layout(yaxis=dict(title="Seconds", gridcolor="#1e293b")))
     return fig
 
 

@@ -146,17 +146,22 @@ class GitPulseAPIClient:
         )
 
     def get_pipeline_runs(
-        self, repository_id: Optional[int] = None
+        self, repository_id: Optional[int] = None, limit: int = 50
     ) -> List[Dict[str, Any]]:
-        params = {"repository_id": repository_id} if repository_id else None
+        params: Dict[str, Any] = {"limit": limit}
+        if repository_id is not None:
+            params["repository_id"] = repository_id
         result = self._get("pipeline/runs", params=params)
         return result if result is not None else []
 
     # ------------------------------------------------------------------
     # Analytics
     # ------------------------------------------------------------------
-    def get_overview_metrics(self) -> Dict[str, Any]:
-        result = self._get("analytics/overview")
+    def get_overview_metrics(
+        self, repository_id: Optional[int] = None
+    ) -> Dict[str, Any]:
+        params = {"repository_id": repository_id} if repository_id is not None else None
+        result = self._get("analytics/overview", params=params)
         if result:
             return result
         return {

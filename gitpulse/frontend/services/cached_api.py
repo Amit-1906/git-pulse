@@ -22,19 +22,20 @@ def get_repository_detail(repo_id: int) -> Optional[Dict[str, Any]]:
 
 
 @st.cache_data(ttl=READ_CACHE_TTL, show_spinner=False)
-def get_overview_metrics(repo_id: Optional[int] = None) -> Dict[str, Any]:
-    return api_client.get_overview_metrics(repo_id=repo_id)
+def get_overview_metrics(repository_id: Optional[int] = None) -> Dict[str, Any]:
+    return api_client.get_overview_metrics(repository_id=repository_id)
 
 
 @st.cache_data(ttl=READ_CACHE_TTL, show_spinner=False)
 def get_commits(
     repository_id: Optional[int] = None,
     author: Optional[str] = None,
+    since: Optional[str] = None,
+    until: Optional[str] = None,
     limit: int = 200,
-    offset: int = 0,
 ) -> List[Dict[str, Any]]:
     return api_client.get_commits(
-        repository_id=repository_id, author=author, limit=limit, offset=offset
+        repository_id=repository_id, author=author, since=since, until=until, limit=limit
     )
 
 
@@ -42,11 +43,12 @@ def get_commits(
 def get_pull_requests(
     repository_id: Optional[int] = None,
     state: Optional[str] = None,
+    author: Optional[str] = None,
+    since: Optional[str] = None,
     limit: int = 200,
-    offset: int = 0,
 ) -> List[Dict[str, Any]]:
     return api_client.get_pull_requests(
-        repository_id=repository_id, state=state, limit=limit, offset=offset
+        repository_id=repository_id, state=state, author=author, since=since, limit=limit
     )
 
 
@@ -54,11 +56,12 @@ def get_pull_requests(
 def get_issues(
     repository_id: Optional[int] = None,
     state: Optional[str] = None,
+    author: Optional[str] = None,
+    since: Optional[str] = None,
     limit: int = 200,
-    offset: int = 0,
 ) -> List[Dict[str, Any]]:
     return api_client.get_issues(
-        repository_id=repository_id, state=state, limit=limit, offset=offset
+        repository_id=repository_id, state=state, author=author, since=since, limit=limit
     )
 
 
@@ -68,8 +71,8 @@ def get_contributors(repository_id: Optional[int] = None) -> List[Dict[str, Any]
 
 
 @st.cache_data(ttl=READ_CACHE_TTL, show_spinner=False)
-def get_pipeline_runs(limit: int = 50) -> List[Dict[str, Any]]:
-    return api_client.get_pipeline_runs(limit=limit)
+def get_pipeline_runs(repository_id: Optional[int] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    return api_client.get_pipeline_runs(repository_id=repository_id, limit=limit)
 
 
 @st.cache_data(ttl=HEALTH_CACHE_TTL, show_spinner=False)
@@ -93,8 +96,8 @@ def list_accessible_github_repos() -> List[Dict[str, Any]]:
 
 
 @st.cache_data(ttl=READ_CACHE_TTL, show_spinner=False)
-def list_extraction_history(limit: int = 50) -> List[Dict[str, Any]]:
-    return api_client.list_extraction_history(limit=limit)
+def list_extraction_history(repository: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    return api_client.list_extraction_history(repository=repository, limit=limit)
 
 
 @st.cache_data(ttl=READ_CACHE_TTL, show_spinner=False)
@@ -210,3 +213,4 @@ def test_transformation() -> Dict[str, Any]:
     get_quality_results.clear()
     get_transformation_status.clear()
     return res
+

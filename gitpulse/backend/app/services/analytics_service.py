@@ -18,27 +18,43 @@ class AnalyticsService(BaseService):
     Computes aggregates and summaries across repositories, commits, PRs, issues, and pipelines.
     """
 
-    def get_overview_metrics(self, db: Session) -> OverviewMetrics:
+    def get_overview_metrics(self, db: Session, repository_id: Optional[int] = None) -> OverviewMetrics:
+        if not isinstance(repository_id, int):
+            repository_id = None
         # Repositories
-        total_repos = db.scalar(select(func.count(Repository.id))) or 0
-        active_repos = db.scalar(select(func.count(Repository.id)).where(Repository.is_active == True)) or 0
+        if repository_id is not None:
+            repo = db.get(Repository, repository_id)
+            total_repos = 1 if repo else 0
+            active_repos = 1 if (repo and repo.is_active) else 0
+            
+            commit_filter = Commit.repository_id == repository_id
+            pr_filter = PullRequest.repository_id == repository_id
+            issue_filter = Issue.repository_id == repository_id
+            pipeline_filter = PipelineRun.repository_id == repository_id
+        else:
+            total_repos = db.scalar(select(func.count(Repository.id))) or 0
+            active_repos = db.scalar(select(func.count(Repository.id)).where(Repository.is_active == True)) or 0
+            commit_filter = True
+            pr_filter = True
+            issue_filter = True
+            pipeline_filter = True
 
         # Commits
-        total_commits = db.scalar(select(func.count(Commit.id))) or 0
+        total_commits = db.scalar(select(func.count(Commit.id)).where(commit_filter)) or 0
 
         # Pull Requests
-        total_prs = db.scalar(select(func.count(PullRequest.id))) or 0
+        total_prs = db.scalar(select(func.count(PullRequest.id)).where(pr_filter)) or 0
 
         # Issues
-        total_issues = db.scalar(select(func.count(Issue.id))) or 0
+        total_issues = db.scalar(select(func.count(Issue.id)).where(issue_filter)) or 0
 
         # Unique Contributors
-        unique_authors = db.scalar(select(func.count(distinct(Commit.author_email)))) or 0
+        unique_authors = db.scalar(select(func.count(distinct(Commit.author_email))).where(commit_filter)) or 0
 
         # Pipeline stats
-        total_runs = db.scalar(select(func.count(PipelineRun.id))) or 0
+        total_runs = db.scalar(select(func.count(PipelineRun.id)).where(pipeline_filter)) or 0
         completed_runs = (
-            db.scalar(select(func.count(PipelineRun.id)).where(PipelineRun.status == "completed")) or 0
+            db.scalar(select(func.count(PipelineRun.id)).where(pipeline_filter).where(PipelineRun.status == "completed")) or 0
         )
         success_rate = round((completed_runs / total_runs * 100), 1) if total_runs > 0 else 100.0
 

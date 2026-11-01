@@ -9,10 +9,27 @@ from app.services.analytics_service import analytics_service
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
+def _clean_optional_int(val: Any) -> Optional[int]:
+    if val is None:
+        return None
+    if isinstance(val, int):
+        return val
+    if hasattr(val, "default"):
+        return _clean_optional_int(val.default)
+    try:
+        return int(val)
+    except Exception:
+        return None
+
+
 @router.get("/overview", response_model=OverviewMetrics, summary="Get global analytics overview")
-def get_overview(db: Session = Depends(get_db)):
-    """Computes high-level platform KPI metrics across all connected repositories."""
-    return analytics_service.get_overview_metrics(db)
+def get_overview(
+    repository_id: Optional[int] = Query(None, description="Filter overview metrics by repository ID"),
+    db: Session = Depends(get_db),
+):
+    """Computes high-level platform KPI metrics across all connected repositories, or for a specific repository."""
+    clean_repo_id = _clean_optional_int(repository_id)
+    return analytics_service.get_overview_metrics(db, repository_id=clean_repo_id)
 
 
 @router.get("/contributors", response_model=List[ContributorSummary], summary="Get top contributors")
