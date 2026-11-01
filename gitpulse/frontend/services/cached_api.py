@@ -2,9 +2,19 @@
 GitPulse Cached API Service Layer
 Prevents redundant HTTP queries, accelerates page navigation, and provides safe cache invalidation on mutations.
 """
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 import streamlit as st
-from services.api_client import api_client
+
+_FRONTEND_DIR = Path(__file__).resolve().parent.parent
+if str(_FRONTEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_FRONTEND_DIR))
+
+try:
+    from services.api_client import api_client
+except (ModuleNotFoundError, ImportError):
+    from .api_client import api_client
 
 # Default cache time-to-live in seconds
 READ_CACHE_TTL = 45

@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitpulse"
@@ -9,6 +9,25 @@ description = "End-to-End ELT Platform for GitHub Activity Analytics"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "starlette>=0.36.0",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.0",
+    "SQLAlchemy>=2.0.28",
+    "psycopg2-binary>=2.9.9",
+    "alembic>=1.13.1",
+    "httpx>=0.27.0",
+    "requests>=2.31.0",
+    "anyio>=4.3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["gitpulse/backend"]
+include = ["app*"]
 
 [tool.vercel]
 entrypoint = "gitpulse/backend/app/main.py"
@@ -23,8 +42,3 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
 ]
-
-[tool.setuptools.packages.find]
-where = ["gitpulse/backend"]
-include = ["app*"]
-

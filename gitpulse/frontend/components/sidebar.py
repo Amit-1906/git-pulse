@@ -5,7 +5,10 @@ with repository scoping and live connection status indicators.
 """
 from typing import Optional
 import streamlit as st
-from services import cached_api
+try:
+    from services import cached_api
+except (ModuleNotFoundError, ImportError):
+    from gitpulse.frontend.services import cached_api
 
 
 def render_sidebar():

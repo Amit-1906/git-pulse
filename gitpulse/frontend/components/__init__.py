@@ -1,14 +1,14 @@
-from components.header import render_header
-from components.sidebar import render_sidebar
-from components.metrics import render_metric_card, render_status_pill
-from components.charts import (
+from .header import render_header
+from .sidebar import render_sidebar
+from .metrics import render_metric_card, render_status_pill
+from .charts import (
     create_activity_area_chart,
     create_commits_bar_chart,
     create_pr_status_donut,
     create_contributors_leaderboard,
     create_pipeline_latency_chart,
 )
-from components.tables import render_repository_table
+from .tables import render_repository_table
 
 __all__ = [
     "render_header",
