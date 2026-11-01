@@ -3,9 +3,8 @@ Page 7 — Pipeline Monitor
 Live observability and orchestration control for GitHub ELT extraction jobs.
 Monitors GitHub API rate limits, job history, checkpoints, and provides manual triggers.
 """
-import sys
 from pathlib import Path
-from datetime import datetime
+import sys
 import streamlit as st
 import pandas as pd
 
@@ -13,62 +12,68 @@ frontend_dir = Path(__file__).parent.parent
 if str(frontend_dir) not in sys.path:
     sys.path.insert(0, str(frontend_dir))
 
-from components.header import render_header
-from components.sidebar import render_sidebar
-from components.metrics import render_metric_card, render_status_pill
-from components.charts import create_pipeline_latency_chart
-from services.api_client import api_client
-
-st.set_page_config(
-    page_title="GitPulse | Pipeline Monitor",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
+from components.ui import (
+    page_setup,
+    render_page_header,
+    render_section_header,
+    render_metric_card,
+    render_empty_state,
 )
+from components.sidebar import render_sidebar
+from components.charts import create_pipeline_latency_chart
+from services import cached_api
 
-css_path = frontend_dir / "assets" / "style.css"
-if css_path.exists():
-    st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-
+page_setup("Pipeline Monitor", icon="⚡")
 render_sidebar()
 
-current_repo = st.session_state.get("selected_repo", "All Monitored Repositories")
-render_header(
-    title="Pipeline Monitor",
-    subtitle="Extraction job orchestration, GitHub API rate limit tracking, and ingestion telemetry",
-    current_repo=current_repo,
+# Page Header
+render_page_header(
+    title="Pipeline Monitor & Orchestration",
+    subtitle="Extraction job control, GitHub API rate limit tracking, and ingestion telemetry",
+    icon="⚡",
 )
 
-# ── GitHub Rate Limit & Telemetry ──────────────────────────────────────────
-with st.spinner("Fetching pipeline telemetry & rate limits..."):
-    rate_info = api_client.get_github_rate_limit() or {}
-    jobs = api_client.list_extraction_history(limit=50)
-    repos = api_client.get_repositories()
+# Fetch Telemetry with Caching
+rate_info = cached_api.get_github_rate_limit() or {}
+jobs = cached_api.list_extraction_history(limit=50)
+repos = cached_api.get_repositories()
 
 core_rate = rate_info.get("resources", {}).get("core", {})
 rate_limit = core_rate.get("limit", 60)
 rate_remaining = core_rate.get("remaining", 60)
-rate_used = core_rate.get("used", 0)
 rate_pct = round((rate_remaining / rate_limit * 100), 1) if rate_limit > 0 else 100.0
 
+total_jobs = len(jobs)
+completed_jobs = sum(1 for j in jobs if str(j.get("status", "")).lower() in ("completed", "success"))
+success_rate = round(completed_jobs / total_jobs * 100, 1) if total_jobs > 0 else 100.0
+total_extracted = sum(j.get("records_extracted", 0) or 0 for j in jobs)
+
+# Section 1: Rate Limits & Telemetry
+render_section_header("API Quota & Extraction Velocity", "Real-time rate-limit budget and historical extraction yields")
 c1, c2, c3, c4 = st.columns(4)
 with c1:
-    render_metric_card("GitHub API Quota", f"{rate_remaining:,} / {rate_limit:,}", delta=f"{rate_pct}% free", icon="🌐")
+    render_metric_card("GitHub API Quota", f"{rate_remaining:,} / {rate_limit:,}", delta=f"{rate_pct}% remaining", icon="🌐")
 with c2:
-    total_jobs = len(jobs)
-    render_metric_card("Total Jobs Logged", str(total_jobs), icon="⚡")
+    render_metric_card("Extraction Runs", str(total_jobs), icon="⚡")
 with c3:
-    completed_jobs = sum(1 for j in jobs if str(j.get("status", "")).lower() in ("completed", "success"))
-    success_rate = round(completed_jobs / total_jobs * 100, 1) if total_jobs > 0 else 100.0
     render_metric_card("Job Success Rate", f"{success_rate}%", icon="🛡️")
 with c4:
-    total_extracted = sum(j.get("records_extracted", 0) or 0 for j in jobs)
-    render_metric_card("Total Records Ingested", f"{total_extracted:,}", icon="📦")
+    render_metric_card("Total Ingested Records", f"{total_extracted:,}", icon="📦")
 
-st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
-
-# ── Trigger New Extraction ─────────────────────────────────────────────────
-with st.expander("🚀 Trigger On-Demand GitHub Extraction", expanded=False):
+# Section 2: On-Demand Extraction Dispatcher
+render_section_header("Trigger Extraction Job", "Configure and dispatch extraction jobs to the background engine")
+with st.container():
+    st.markdown(
+        """
+        <div class="gp-panel">
+            <div style="font-weight: 600; color: var(--gp-text-main); margin-bottom: 0.5rem;">Pipeline Extraction Parameters</div>
+            <p style="font-size: 0.8rem; color: var(--gp-text-secondary); margin-bottom: 1rem;">
+                Select target repository and resources to pull from the GitHub REST API.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     repo_names = [r["full_name"] for r in repos] if repos else ["tiangolo/fastapi"]
     selected_target = st.selectbox("Select Target Repository", options=repo_names)
 
@@ -87,7 +92,7 @@ with st.expander("🚀 Trigger On-Demand GitHub Extraction", expanded=False):
         incremental_mode = st.toggle("Incremental Extraction (use checkpoints)", value=True)
 
     with c_btn:
-        if st.button("⚡ Start Extraction", type="primary", use_container_width=True):
+        if st.button("⚡ Dispatch Job", type="primary", use_container_width=True):
             resources = []
             if ext_repo:
                 resources.append("repository")
@@ -99,7 +104,7 @@ with st.expander("🚀 Trigger On-Demand GitHub Extraction", expanded=False):
                 resources.append("issues")
 
             with st.spinner("Submitting extraction job to engine..."):
-                res = api_client.start_extraction(
+                res = cached_api.start_extraction(
                     repository_full_name=selected_target,
                     resources=resources,
                     incremental=incremental_mode,
@@ -112,9 +117,10 @@ with st.expander("🚀 Trigger On-Demand GitHub Extraction", expanded=False):
                     st.success("Extraction job accepted!")
                     st.rerun()
                 else:
-                    st.info("Extraction queued (standalone preview mode).")
+                    st.info("Extraction queued.")
 
-# ── Pipeline Duration Trend ────────────────────────────────────────────────
+# Section 3: Latency Trend
+render_section_header("Pipeline Execution Latency", "Duration curve across the most recent extraction jobs")
 if jobs:
     valid_durations = [j for j in jobs if j.get("duration_seconds") is not None]
     if valid_durations:
@@ -124,21 +130,28 @@ if jobs:
             create_pipeline_latency_chart(run_labels, durations),
             use_container_width=True,
         )
+    else:
+        render_empty_state("No Latency Metrics", "Completed jobs will display duration curves.")
+else:
+    render_empty_state("No Job Records", "Trigger an extraction job to view latency metrics.")
 
-# ── Job History Log ────────────────────────────────────────────────────────
-st.markdown("### 📋 Extraction Job History")
-
-col_ref, col_space = st.columns([1, 5])
-with col_ref:
-    if st.button("🔄 Refresh History", use_container_width=True):
-        st.rerun()
-
+# Section 4: History Log Table
+render_section_header(f"Extraction Job Log ({len(jobs)} runs)", "Complete ledger of ingestion jobs and error diagnostics")
 if jobs:
     jdf = pd.DataFrame(jobs)
     cols = [
-        c for c in [
-            "id", "job_id", "repository_full_name", "pipeline_name", "stage", "status",
-            "started_at", "duration_seconds", "records_extracted", "records_loaded", "error_message"
+        c
+        for c in [
+            "id",
+            "job_id",
+            "repository_full_name",
+            "stage",
+            "status",
+            "started_at",
+            "duration_seconds",
+            "records_extracted",
+            "records_loaded",
+            "error_message",
         ]
         if c in jdf.columns
     ]
@@ -146,12 +159,17 @@ if jobs:
         jdf[cols],
         column_config={
             "id": st.column_config.NumberColumn("ID", format="%d"),
+            "repository_full_name": "Repository",
+            "stage": "Stage",
+            "status": "Status",
+            "started_at": "Timestamp",
             "duration_seconds": st.column_config.NumberColumn("Duration (s)", format="%.2f"),
             "records_extracted": st.column_config.NumberColumn("Extracted", format="%d"),
             "records_loaded": st.column_config.NumberColumn("Loaded", format="%d"),
+            "error_message": "Error Message",
         },
         use_container_width=True,
         hide_index=True,
     )
 else:
-    st.info("No extraction jobs recorded yet. Trigger an extraction above to start ingesting data.")
+    render_empty_state("No Extraction Runs", "Trigger an extraction above to populate the job ledger.")

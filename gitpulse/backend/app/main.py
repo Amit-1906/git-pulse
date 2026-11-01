@@ -13,6 +13,8 @@ import app.models  # Ensure all model declarations are registered on Base
 
 # Initialize logging before FastAPI app creation
 setup_logging()
+
+
 logger = logging.getLogger("gitpulse.main")
 settings = get_settings()
 

@@ -1,67 +1,52 @@
 """
 Page 1 — Overview Dashboard
-Shows platform-wide KPIs, activity timeline, PR/issue distributions, and recent pipeline batches.
-All data sourced from the FastAPI backend. No fabricated numbers.
+Platform-wide health, ingestion volume, and activity metrics.
 """
-import sys
 from pathlib import Path
+import sys
+from datetime import datetime
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
 frontend_dir = Path(__file__).parent.parent
 if str(frontend_dir) not in sys.path:
     sys.path.insert(0, str(frontend_dir))
 
-from components.header import render_header
+from components.ui import (
+    page_setup,
+    render_page_header,
+    render_section_header,
+    render_metric_card,
+    render_empty_state,
+)
 from components.sidebar import render_sidebar
-from components.metrics import render_metric_card, render_status_pill
 from components.charts import (
     create_activity_area_chart,
     create_pr_status_donut,
     create_issue_state_donut,
     create_contributors_leaderboard,
 )
-from services.api_client import api_client
+from services import cached_api
 
-st.set_page_config(
-    page_title="GitPulse | Overview",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-css_path = frontend_dir / "assets" / "style.css"
-if css_path.exists():
-    st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-
+page_setup("Overview Dashboard", icon="⚡")
 render_sidebar()
 
-current_repo = st.session_state.get("selected_repo", "All Monitored Repositories")
-render_header(
+# Page Header
+render_page_header(
     title="Overview Dashboard",
-    subtitle="Platform-wide health, ingestion volume, and activity metrics",
-    current_repo=current_repo,
+    subtitle="Enterprise ingestion telemetry, pipeline throughput, and operational metrics",
+    icon="⚡",
 )
 
-# ── Refresh control ────────────────────────────────────────────────────────
-col_refresh, col_ts = st.columns([1, 5])
-with col_refresh:
-    refresh = st.button("🔄 Refresh", use_container_width=True)
+# Fetch Telemetry with Caching
+metrics = cached_api.get_overview_metrics()
+pipeline_runs = cached_api.get_pipeline_runs(limit=10)
+contributors = cached_api.get_contributors()
+prs = cached_api.get_pull_requests(limit=300)
+issues = cached_api.get_issues(limit=300)
 
-# ── Data fetch ─────────────────────────────────────────────────────────────
-with st.spinner("Loading overview metrics…"):
-    metrics = api_client.get_overview_metrics()
-    repos = api_client.get_repositories()
-    pipeline_runs = api_client.get_pipeline_runs()
-    contributors = api_client.get_contributors()
-    prs = api_client.get_pull_requests()
-    issues = api_client.get_issues()
-
-with col_ts:
-    st.caption(f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-# ── KPI Row ────────────────────────────────────────────────────────────────
+# Section 1: Key Performance Indicators
+render_section_header("Executive Telemetry", "Cross-repository volume and platform health")
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 with c1:
     render_metric_card("Tracked Repos", str(metrics.get("total_repositories", 0)), icon="📁")
@@ -74,16 +59,12 @@ with c4:
 with c5:
     render_metric_card("Contributors", str(metrics.get("total_contributors", 0)), icon="👥")
 with c6:
-    success_rate = metrics.get("pipeline_success_rate", 0.0)
+    success_rate = metrics.get("pipeline_success_rate", 100.0)
     render_metric_card("Pipeline Success", f"{success_rate:.1f}%", icon="🛡️")
 
-st.markdown("<div style='margin-top:1.5rem'></div>", unsafe_allow_html=True)
-
-# ── Activity Timeline ──────────────────────────────────────────────────────
-st.markdown("### 📈 Activity Velocity")
-
+# Section 2: Activity Velocity
+render_section_header("Activity Velocity", "PR and Issue ingestion volume over time")
 if prs or issues:
-    # Build daily commit/PR series from real data
     pr_df = pd.DataFrame(prs) if prs else pd.DataFrame()
     issue_df = pd.DataFrame(issues) if issues else pd.DataFrame()
 
@@ -95,28 +76,27 @@ if prs or issues:
 
     pr_daily = _daily_counts(pr_df, "created_at")
     issue_daily = _daily_counts(issue_df, "created_at")
-
     combined_idx = pr_daily.index.union(issue_daily.index)
+
     if len(combined_idx):
         dates = [d.strftime("%b %d") for d in combined_idx]
         pr_vals = [int(pr_daily.get(d, 0)) for d in combined_idx]
         issue_vals = [int(issue_daily.get(d, 0)) for d in combined_idx]
-        from components.charts import create_activity_area_chart as _act
-        import plotly.graph_objects as go
-        fig = _act(dates, pr_vals, issue_vals)
+        fig = create_activity_area_chart(dates, pr_vals, issue_vals)
         fig.data[0].name = "Pull Requests"
         fig.data[1].name = "Issues"
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No time-series data yet — run an extraction to populate charts.")
+        render_empty_state("No Activity Data", "Run an extraction to populate timeline activity.")
 else:
-    st.info("No pull request or issue data yet. Connect GitHub and run an extraction.")
+    render_empty_state("No Activity Records", "Connect GitHub and trigger ELT sync to view metrics.")
 
-# ── PR + Issue Distributions ───────────────────────────────────────────────
-col_pr, col_iss = st.columns(2)
+# Section 3: State Distributions & Contributor Rankings
+render_section_header("Lifecycle & Engineering Participation", "PR & Issue state segmentation alongside top committers")
+col_pr, col_iss, col_contrib = st.columns([1, 1, 1.4])
 
 with col_pr:
-    st.markdown("### 🔀 PR State Distribution")
+    st.markdown("<h5 style='color: var(--gp-text-main); font-size: 0.95rem; margin-bottom: 0.5rem;'>Pull Request States</h5>", unsafe_allow_html=True)
     if prs:
         pr_df2 = pd.DataFrame(prs)
         state_col = "state" if "state" in pr_df2.columns else None
@@ -131,12 +111,12 @@ with col_pr:
                 merged_cnt = 0
             st.plotly_chart(create_pr_status_donut(open_cnt, merged_cnt, closed_cnt), use_container_width=True)
         else:
-            st.info("PR state field not available.")
+            render_empty_state("No State Data", "PR state field unavailable.")
     else:
-        st.info("No PR data available.")
+        render_empty_state("No Pull Requests", "PR data will appear after synchronization.")
 
 with col_iss:
-    st.markdown("### 🐛 Issue State Distribution")
+    st.markdown("<h5 style='color: var(--gp-text-main); font-size: 0.95rem; margin-bottom: 0.5rem;'>Issue Backlog Status</h5>", unsafe_allow_html=True)
     if issues:
         iss_df2 = pd.DataFrame(issues)
         if "state" in iss_df2.columns:
@@ -144,48 +124,57 @@ with col_iss:
             closed_iss = int((iss_df2["state"] == "closed").sum())
             st.plotly_chart(create_issue_state_donut(open_iss, closed_iss), use_container_width=True)
         else:
-            st.info("Issue state field not available.")
+            render_empty_state("No Issue Data", "Issue state field unavailable.")
     else:
-        st.info("No issue data available.")
+        render_empty_state("No Issues", "Issue metrics will appear after synchronization.")
 
-# ── Contributor Leaderboard ────────────────────────────────────────────────
-st.markdown("### 👥 Contributor Activity")
-if contributors:
-    cdf = pd.DataFrame(contributors)
-    name_col = "login" if "login" in cdf.columns else (cdf.columns[0] if len(cdf.columns) else None)
-    count_col = "commits_count" if "commits_count" in cdf.columns else None
-    if name_col and count_col:
-        top = cdf.nlargest(10, count_col)
-        st.plotly_chart(
-            create_contributors_leaderboard(list(top[name_col]), list(top[count_col])),
-            use_container_width=True,
-        )
+with col_contrib:
+    st.markdown("<h5 style='color: var(--gp-text-main); font-size: 0.95rem; margin-bottom: 0.5rem;'>Top Contributor Volume</h5>", unsafe_allow_html=True)
+    if contributors:
+        cdf = pd.DataFrame(contributors)
+        name_col = "login" if "login" in cdf.columns else (cdf.columns[0] if len(cdf.columns) else None)
+        count_col = "commits_count" if "commits_count" in cdf.columns else None
+        if name_col and count_col:
+            top = cdf.nlargest(6, count_col)
+            st.plotly_chart(
+                create_contributors_leaderboard(list(top[name_col]), list(top[count_col])),
+                use_container_width=True,
+            )
+        else:
+            render_empty_state("No Contributors", "Contributor breakdown unavailable.")
     else:
-        st.dataframe(cdf, use_container_width=True, hide_index=True)
-else:
-    st.info("No contributor data yet.")
+        render_empty_state("No Contributors", "Ingest commits to identify contributors.")
 
-# ── Recent Pipeline Batches ────────────────────────────────────────────────
-st.markdown("### ⚡ Recent ELT Pipeline Batches")
+# Section 4: Recent Ingestion Batches
+render_section_header("ELT Ingestion Batches", "Recent pipeline runs logged in the operational database")
 if pipeline_runs:
     run_df = pd.DataFrame(pipeline_runs)
-    display_cols = [c for c in ["id", "pipeline_name", "stage", "status", "started_at", "duration_seconds", "records_loaded"] if c in run_df.columns]
-    if display_cols:
-        # Colour the status column via HTML
-        def _fmt_row(row):
-            return row
-
-        st.dataframe(
-            run_df[display_cols],
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "id": st.column_config.NumberColumn("Run ID", format="%d"),
-                "duration_seconds": st.column_config.NumberColumn("Duration (s)", format="%.1f"),
-                "records_loaded": st.column_config.NumberColumn("Records Loaded", format="%d"),
-            },
-        )
-    else:
-        st.dataframe(run_df, use_container_width=True, hide_index=True)
+    display_cols = [
+        c
+        for c in [
+            "id",
+            "pipeline_name",
+            "stage",
+            "status",
+            "started_at",
+            "duration_seconds",
+            "records_loaded",
+        ]
+        if c in run_df.columns
+    ]
+    st.dataframe(
+        run_df[display_cols],
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "id": st.column_config.NumberColumn("Run ID", format="%d"),
+            "pipeline_name": "Pipeline",
+            "stage": "Stage",
+            "status": "Status",
+            "started_at": "Timestamp",
+            "duration_seconds": st.column_config.NumberColumn("Duration (s)", format="%.2f"),
+            "records_loaded": st.column_config.NumberColumn("Records Loaded", format="%d"),
+        },
+    )
 else:
-    st.info("No pipeline runs recorded yet.")
+    render_empty_state("No Pipeline Runs", "Trigger a pipeline run from the sidebar to inspect execution history.")

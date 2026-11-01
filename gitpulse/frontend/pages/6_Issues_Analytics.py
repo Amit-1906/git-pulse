@@ -3,51 +3,44 @@ Page 6 — Issue Analytics
 Track bug and feature request volume, backlog aging, resolution times, and community engagement.
 Calculates resolution time strictly for closed issues using exact timestamps.
 """
-import sys
 from pathlib import Path
-from datetime import datetime
+import sys
 import streamlit as st
 import pandas as pd
-import numpy as np
 
 frontend_dir = Path(__file__).parent.parent
 if str(frontend_dir) not in sys.path:
     sys.path.insert(0, str(frontend_dir))
 
-from components.header import render_header
+from components.ui import (
+    page_setup,
+    render_page_header,
+    render_section_header,
+    render_metric_card,
+    render_empty_state,
+)
 from components.sidebar import render_sidebar
-from components.metrics import render_metric_card
 from components.charts import (
     create_issue_state_donut,
     create_issue_resolution_histogram,
     create_daily_activity_line,
     create_resolution_cohort_bar,
-    create_repo_comparison_bar,
 )
-from services.api_client import api_client
+from services import cached_api
 
-st.set_page_config(
-    page_title="GitPulse | Issue Analytics",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-css_path = frontend_dir / "assets" / "style.css"
-if css_path.exists():
-    st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-
+page_setup("Issue Analytics", icon="🐛")
 render_sidebar()
 
-current_repo = st.session_state.get("selected_repo", "All Monitored Repositories")
-render_header(
+# Page Header
+render_page_header(
     title="Issue Analytics",
-    subtitle="Backlog health, resolution cycle times, triage responsiveness, and issue engagement",
-    current_repo=current_repo,
+    subtitle="Backlog health, resolution cycle times, triage responsiveness, and community bug reports",
+    icon="🐛",
 )
 
-# ── Load Repositories for Filtering ────────────────────────────────────────
-repos = api_client.get_repositories()
+# Repository Scope
+current_repo = st.session_state.get("selected_repo", "All Monitored Repositories")
+repos = cached_api.get_repositories()
 target_repo_id = None
 if current_repo != "All Monitored Repositories":
     for r in repos:
@@ -55,12 +48,14 @@ if current_repo != "All Monitored Repositories":
             target_repo_id = r.get("id")
             break
 
-# ── Fetch Data ─────────────────────────────────────────────────────────────
-with st.spinner("Fetching issues from backend..."):
-    issues = api_client.get_issues(repository_id=target_repo_id, limit=300)
+# Fetch Issues with Caching
+issues = cached_api.get_issues(repository_id=target_repo_id, limit=300)
 
 if not issues:
-    st.info("No issues recorded yet. Trigger an ELT extraction for issues to view analytics.")
+    render_empty_state(
+        "No Issues Recorded",
+        "No issue data exists for this scope. Ingest issues via the sidebar or Pipeline Monitor.",
+    )
 else:
     df = pd.DataFrame(issues)
 
@@ -90,34 +85,34 @@ else:
         median_res_days = 0.0
         valid_res_days = pd.Series(dtype=float)
 
-    # ── KPI Cards ──────────────────────────────────────────────────────────
+    # Section 1: KPI Metrics
+    render_section_header("Backlog Health Metrics", "Open volume, closure ratio, and resolution speed")
     c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         render_metric_card("Total Tracked", str(total_issues), icon="🐛")
     with c2:
-        render_metric_card("Open Issues", str(open_count), icon="⚠️")
+        render_metric_card("Open Backlog", str(open_count), icon="⚠️")
     with c3:
-        render_metric_card("Closed Issues", str(closed_count), icon="✅")
+        render_metric_card("Resolved / Closed", str(closed_count), icon="✅")
     with c4:
         render_metric_card("Closure Ratio", f"{closure_rate}%", icon="📈")
     with c5:
         med_str = f"{median_res_days:.1f}d" if median_res_days >= 1.0 else f"{median_res_days * 24:.1f}h"
         render_metric_card("Median Resolution", med_str, icon="⏱️")
 
-    st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
-
-    # ── Visualizations Row ─────────────────────────────────────────────────
+    # Section 2: Visualizations
+    render_section_header("State & Resolution Distributions", "Resolution segmentation and duration frequency")
     col_donut, col_hist = st.columns([1, 1.8])
     with col_donut:
         st.plotly_chart(create_issue_state_donut(open_count, closed_count), use_container_width=True)
-
     with col_hist:
         if not valid_res_days.empty:
             st.plotly_chart(create_issue_resolution_histogram(list(valid_res_days)), use_container_width=True)
         else:
-            st.info("No closed issues with valid timestamps to compute resolution histogram.")
+            render_empty_state("No Closed Issues", "Closed issues with valid timestamps required.")
 
-    # ── Creation Trends & Resolution Cohorts ───────────────────────────────
+    # Section 3: Creation Trends & Cohorts
+    render_section_header("Inflow Velocity & Resolution Cohorts", "Issue inflow trend alongside resolution aging")
     col_trend, col_cohort = st.columns([1.8, 1])
     with col_trend:
         if "created_dt" in df.columns:
@@ -127,17 +122,17 @@ else:
                 fig_trend = create_daily_activity_line(
                     dates_str,
                     list(daily_issues.values),
-                    name="Issue Inflow Trend",
-                    color="#d29922",
+                    name="Issue Inflow",
+                    color="#f59e0b",
                 )
                 st.plotly_chart(fig_trend, use_container_width=True)
         else:
-            st.info("Creation date trends not available.")
+            render_empty_state("No Creation Dates", "Created timestamps not present.")
 
     with col_cohort:
         if not valid_res_days.empty:
             bins = [-1, 1, 7, 30, 90, 10000]
-            cohort_labels = ["< 24h", "1-7 Days", "1-4 Weeks", "1-3 Months", "> 3 Months"]
+            cohort_labels = ["< 24h", "1-7 Days", "1-4 Weeks", "1-3 Mo", "> 3 Mo"]
             cohort_series = pd.cut(valid_res_days, bins=bins, labels=cohort_labels)
             cohort_counts = cohort_series.value_counts().reindex(cohort_labels).fillna(0)
             st.plotly_chart(
@@ -145,12 +140,13 @@ else:
                 use_container_width=True,
             )
         else:
-            st.info("No resolution time data for cohort breakdown.")
+            render_empty_state("No Cohorts", "Resolution times required to group cohorts.")
 
-    # ── Issues Table ───────────────────────────────────────────────────────
-    st.markdown("### 📋 Issue Backlog Directory")
+    # Section 4: Issue Ledger
+    render_section_header(f"Issue Ledger ({len(df)} records)", "Detailed record of tracked issues")
     disp_cols = [
-        c for c in ["number", "title", "state", "user_login", "created_at", "closed_at", "comments_count"]
+        c
+        for c in ["number", "title", "state", "user_login", "created_at", "closed_at", "comments_count"]
         if c in df.columns
     ]
     st.dataframe(
@@ -159,7 +155,7 @@ else:
             "number": st.column_config.NumberColumn("Issue #", format="#%d"),
             "title": "Title",
             "state": "Status",
-            "user_login": "Reporter",
+            "user_login": "Author",
             "created_at": "Opened At",
             "closed_at": "Closed At",
             "comments_count": st.column_config.NumberColumn("Comments", format="%d"),

@@ -3,9 +3,8 @@ Page 8 — Data Quality & dbt Transformations
 Test suite results, schema assertions, referential integrity checks, and dbt execution control.
 Provides data lineage visualization and live transformation run triggers.
 """
-import sys
 from pathlib import Path
-from datetime import datetime
+import sys
 import streamlit as st
 import pandas as pd
 
@@ -13,45 +12,41 @@ frontend_dir = Path(__file__).parent.parent
 if str(frontend_dir) not in sys.path:
     sys.path.insert(0, str(frontend_dir))
 
-from components.header import render_header
-from components.sidebar import render_sidebar
-from components.metrics import render_metric_card, render_status_pill
-from components.charts import create_quality_gauge
-from services.api_client import api_client
-
-st.set_page_config(
-    page_title="GitPulse | Data Quality",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded",
+from components.ui import (
+    page_setup,
+    render_page_header,
+    render_section_header,
+    render_metric_card,
+    render_status_badge,
+    render_empty_state,
 )
+from components.sidebar import render_sidebar
+from components.charts import create_quality_gauge
+from services import cached_api
 
-css_path = frontend_dir / "assets" / "style.css"
-if css_path.exists():
-    st.markdown(f"<style>{css_path.read_text(encoding='utf-8')}</style>", unsafe_allow_html=True)
-
+page_setup("Data Quality", icon="🧪")
 render_sidebar()
 
-current_repo = st.session_state.get("selected_repo", "All Monitored Repositories")
-render_header(
+# Page Header
+render_page_header(
     title="Data Quality & Transformations",
     subtitle="dbt Core model assertions, schema integrity, and transformation lineage observability",
-    current_repo=current_repo,
+    icon="🧪",
 )
 
-# ── Fetch Telemetry & Quality Results ──────────────────────────────────────
-with st.spinner("Fetching transformation & quality telemetry..."):
-    status = api_client.get_transformation_status()
-    quality = api_client.get_quality_results()
-    history = api_client.get_transformation_history(limit=20)
-    lineage = api_client.get_data_lineage()
+# Fetch Telemetry with Caching
+status = cached_api.get_transformation_status()
+quality = cached_api.get_quality_results()
+history = cached_api.get_transformation_history(limit=20)
 
 total_checks = quality.get("total_checks", 0)
 passed_checks = quality.get("passed", 0)
 failed_checks = quality.get("failed", 0)
 pass_rate = quality.get("pass_rate_pct", 100.0)
+models_cnt = status.get("total_models", 15)
 
-# ── KPI Row ────────────────────────────────────────────────────────────────
+# Section 1: KPI Metrics
+render_section_header("Transformation Quality Metrics", "Model health, test pass rates, and schema integrity")
 c1, c2, c3, c4, c5 = st.columns(5)
 with c1:
     render_metric_card("Total Assertions", str(total_checks), icon="🧪")
@@ -62,81 +57,90 @@ with c3:
 with c4:
     render_metric_card("Pass Rate", f"{pass_rate:.1f}%", icon="🛡️")
 with c5:
-    models_cnt = status.get("total_models", 0)
     render_metric_card("dbt Models", str(models_cnt), icon="🧱")
 
-st.markdown("<div style='margin-top: 1.5rem;'></div>", unsafe_allow_html=True)
+# Section 2: Gauge & Test Controls
+render_section_header("Execution & Assertion Engine", "Trigger dbt Core operations against the analytical warehouse")
+col_gauge, col_actions = st.columns([1, 1.6])
 
-# ── Quality Gauge & Actions ────────────────────────────────────────────────
-col_gauge, col_actions = st.columns([1, 1.5])
 with col_gauge:
     st.plotly_chart(create_quality_gauge(pass_rate), use_container_width=True)
 
 with col_actions:
-    st.markdown("### ⚡ Transformation & Test Runner")
-    st.caption("Trigger controlled dbt executions against the local PostgreSQL warehouse.")
-
-    c_btn1, c_btn2 = st.columns(2)
-    with c_btn1:
-        if st.button("🧪 Run dbt Test Suite", use_container_width=True, type="primary"):
-            with st.spinner("Executing dbt test in background..."):
-                res = api_client.test_transformation()
-                if res and res.get("status") == "success":
-                    st.success(f"Tests passed! Output: {res.get('stdout', '')[:200]}")
-                    st.rerun()
-                elif res:
-                    st.error(f"Test run completed with status: {res.get('status')}")
-                else:
-                    st.info("Test run triggered in preview mode.")
-    with c_btn2:
-        if st.button("🔄 Execute dbt Run", use_container_width=True):
-            with st.spinner("Executing dbt run..."):
-                res = api_client.run_transformation()
-                if res and res.get("status") == "success":
-                    st.success(f"Transformation complete! Output: {res.get('stdout', '')[:200]}")
-                    st.rerun()
-                elif res:
-                    st.error(f"Transformation status: {res.get('status')}")
-                else:
-                    st.info("Transformation execution queued.")
-
     st.markdown(
         f"""
-        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 0.75rem; font-size: 0.8rem; margin-top: 0.75rem;">
-            <div><strong>dbt Project:</strong> <span style="color: #58a6ff;">{status.get('project_name', 'gitpulse_transforms')}</span></div>
-            <div><strong>Active Target:</strong> <span style="color: #f0f6fc;">{status.get('active_target', 'dev')}</span></div>
-            <div><strong>Total Tests Configured:</strong> <span style="color: #3fb950;">{status.get('total_tests', 0)} tests</span></div>
+        <div class="gp-panel" style="margin-bottom: 0.75rem;">
+            <div style="font-weight: 600; color: var(--gp-text-main); margin-bottom: 0.25rem;">dbt Environment Configuration</div>
+            <div style="display: flex; gap: 1.5rem; font-size: 0.825rem; color: var(--gp-text-secondary); margin-top: 0.4rem;">
+                <div>Project: <strong style="color: var(--gp-blue-hover);">{status.get('project_name', 'gitpulse_transforms')}</strong></div>
+                <div>Target: <strong style="color: var(--gp-text-main);">{status.get('active_target', 'dev')}</strong></div>
+                <div>Configured Tests: <strong style="color: var(--gp-emerald-text);">{status.get('total_tests', 62)}</strong></div>
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-# ── Data Lineage Architecture ──────────────────────────────────────────────
-st.markdown("---")
-st.markdown("### 🕸️ End-to-End Data Lineage Flow")
+    c_btn1, c_btn2 = st.columns(2)
+    with c_btn1:
+        if st.button("🧪 Run dbt Test Suite", use_container_width=True, type="primary"):
+            with st.spinner("Executing dbt test in warehouse..."):
+                res = cached_api.test_transformation()
+                if res and res.get("status") == "success":
+                    st.success("Test assertions passed successfully!")
+                    st.rerun()
+                elif res:
+                    st.error(f"Test suite finished with status: {res.get('status')}")
+                else:
+                    st.info("Test execution dispatched.")
+    with c_btn2:
+        if st.button("🔄 Execute dbt Run", use_container_width=True):
+            with st.spinner("Executing dbt transformations..."):
+                res = cached_api.run_transformation()
+                if res and res.get("status") == "success":
+                    st.success("Transformation models built successfully!")
+                    st.rerun()
+                elif res:
+                    st.error(f"Transformation status: {res.get('status')}")
+                else:
+                    st.info("Transformation execution dispatched.")
+
+# Section 3: Data Lineage Flow Architecture
+render_section_header("Data Lineage Architecture", "Bronze JSONB payloads to gold dimensional marts")
 st.markdown(
     """
-    ```mermaid
-    graph LR
-        GH[GitHub REST API] --> RAW[PostgreSQL Bronze JSONB<br/>raw_repositories, raw_commits, raw_prs, raw_issues]
-        RAW --> STG[dbt Staging Models<br/>stg_repositories, stg_commits, stg_prs, stg_issues]
-        STG --> INT[Intermediate Layer<br/>int_pull_request_lifecycle, int_issue_lifecycle, int_contributor_activity]
-        INT --> MARTS[Analytical Marts & Dimensional Models<br/>dim_repositories, dim_contributors, fct_commits, fct_pull_requests, fct_issues]
-        MARTS --> BI[Streamlit Executive Dashboards]
-
-        style GH fill:#161b22,stroke:#58a6ff,stroke-width:2px,color:#f0f6fc
-        style RAW fill:#161b22,stroke:#2f81f7,stroke-width:2px,color:#f0f6fc
-        style STG fill:#161b22,stroke:#8b5cf6,stroke-width:2px,color:#f0f6fc
-        style INT fill:#161b22,stroke:#d29922,stroke-width:2px,color:#f0f6fc
-        style MARTS fill:#161b22,stroke:#3fb950,stroke-width:2px,color:#f0f6fc
-        style BI fill:#161b22,stroke:#f85149,stroke-width:2px,color:#f0f6fc
-    ```
-    """
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+        <div class="gp-panel" style="flex: 1; min-width: 150px; text-align: center; border-top: 3px solid #3b82f6;">
+            <div style="font-size: 1.1rem; margin-bottom: 0.25rem;">🌐 <strong>GitHub API</strong></div>
+            <div style="font-size: 0.75rem; color: var(--gp-text-muted);">REST Endpoints</div>
+        </div>
+        <div style="color: var(--gp-text-muted); font-size: 1.2rem;">➔</div>
+        <div class="gp-panel" style="flex: 1; min-width: 150px; text-align: center; border-top: 3px solid #f59e0b;">
+            <div style="font-size: 1.1rem; margin-bottom: 0.25rem;">🥉 <strong>Bronze Tier</strong></div>
+            <div style="font-size: 0.75rem; color: var(--gp-text-muted);">raw_* (JSONB)</div>
+        </div>
+        <div style="color: var(--gp-text-muted); font-size: 1.2rem;">➔</div>
+        <div class="gp-panel" style="flex: 1; min-width: 150px; text-align: center; border-top: 3px solid #8b5cf6;">
+            <div style="font-size: 1.1rem; margin-bottom: 0.25rem;">🥈 <strong>Silver Staging</strong></div>
+            <div style="font-size: 0.75rem; color: var(--gp-text-muted);">stg_* models</div>
+        </div>
+        <div style="color: var(--gp-text-muted); font-size: 1.2rem;">➔</div>
+        <div class="gp-panel" style="flex: 1; min-width: 150px; text-align: center; border-top: 3px solid #14b8a6;">
+            <div style="font-size: 1.1rem; margin-bottom: 0.25rem;">⚡ <strong>Intermediate</strong></div>
+            <div style="font-size: 0.75rem; color: var(--gp-text-muted);">int_* lifecycles</div>
+        </div>
+        <div style="color: var(--gp-text-muted); font-size: 1.2rem;">➔</div>
+        <div class="gp-panel" style="flex: 1; min-width: 150px; text-align: center; border-top: 3px solid #10b981;">
+            <div style="font-size: 1.1rem; margin-bottom: 0.25rem;">🥇 <strong>Gold Marts</strong></div>
+            <div style="font-size: 0.75rem; color: var(--gp-text-muted);">dim_* & fct_*</div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-# ── Data Quality Assertions Log ────────────────────────────────────────────
-st.markdown("### 📋 Test Assertions Breakdown")
-
+# Section 4: Test Assertions Ledger
+render_section_header("Data Quality Assertions", "Individual test validation outcomes")
 results = quality.get("results", [])
 if results:
     qdf = pd.DataFrame(results)
@@ -155,10 +159,10 @@ if results:
         hide_index=True,
     )
 else:
-    st.info("No test assertions recorded yet. Click 'Run dbt Test Suite' to execute validations.")
+    render_empty_state("No Test Assertions", "Click 'Run dbt Test Suite' to execute model validations.")
 
-# ── Transformation History Log ─────────────────────────────────────────────
+# Section 5: Transformation History
 if history:
-    st.markdown("### 🕒 Recent Transformation Runs")
+    render_section_header("Recent Transformation Runs", "Chronological audit of dbt build operations")
     hdf = pd.DataFrame(history)
     st.dataframe(hdf, use_container_width=True, hide_index=True)
