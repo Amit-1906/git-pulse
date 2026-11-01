@@ -1,25 +1,19 @@
 {
-  "version": 2,
-  "name": "gitpulse-api",
-  "builds": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "backend": {
+      "root": "gitpulse/backend",
+      "framework": "fastapi",
+      "buildCommand": "pip install -r requirements.txt",
+      "runtime": "python3.10"
+    }
+  },
+  "rewrites": [
     {
-      "src": "gitpulse/backend/app/main.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
+      "source": "/(.*)",
+      "destination": {
+        "service": "backend"
       }
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "gitpulse/backend/app/main.py"
-    }
-  ],
-  "functions": {
-    "gitpulse/backend/app/main.py": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  }
+  ]
 }

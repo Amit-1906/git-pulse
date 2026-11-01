@@ -53,12 +53,17 @@ class Settings(BaseSettings):
     GITHUB_RATE_LIMIT_BUFFER: int = 50
 
     # CORS Settings
+    # In production: override this with the actual Streamlit Cloud / Railway URL, e.g.:
+    #   CORS_ORIGINS=["https://your-app.streamlit.app","https://your-other-frontend.com"]
     CORS_ORIGINS: List[str] = [
+        # Local development
         "http://localhost:8501",
         "http://127.0.0.1:8501",
         "http://localhost:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        # Streamlit Community Cloud wildcard subdomains (adjust to your exact app URL)
+        "https://*.streamlit.app",
     ]
 
     # Logging Configuration

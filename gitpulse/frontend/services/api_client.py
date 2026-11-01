@@ -11,7 +11,20 @@ class GitPulseAPIClient:
     """HTTP client for the GitPulse FastAPI backend with graceful offline fallbacks."""
 
     def __init__(self, base_url: Optional[str] = None):
-        self.base_url = base_url or os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
+        # Resolution order:
+        #   1. Explicit base_url argument (tests / local override)
+        #   2. BACKEND_URL — injected by Vercel service binding (base URL, no path)
+        #      The binding provides the service root, so we append /api/v1 ourselves.
+        #   3. API_BASE_URL — set manually in Streamlit Cloud / Railway / local .env
+        #      Expected to already contain the full path (e.g. https://x.vercel.app/api/v1)
+        #   4. Localhost default for local development
+        if base_url:
+            self.base_url = base_url
+        elif os.getenv("BACKEND_URL"):
+            # Strip any trailing slash then append the versioned API prefix
+            self.base_url = os.getenv("BACKEND_URL", "").rstrip("/") + "/api/v1"
+        else:
+            self.base_url = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
         self.timeout = 5.0
 
     # ------------------------------------------------------------------
