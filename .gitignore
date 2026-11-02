@@ -25,6 +25,7 @@ ENV/
 *.db
 *.sqlite
 *.sqlite3
+!gitpulse/backend/gitpulse_local.db
 
 # dbt artifacts
 gitpulse/dbt/target/

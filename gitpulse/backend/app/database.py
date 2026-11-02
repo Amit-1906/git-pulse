@@ -55,13 +55,40 @@ def create_db_engine(db_url: Optional[str] = None) -> Engine:
         })
         return create_engine(url, **engine_kwargs)
     except Exception as exc:
-        db_file = Path(__file__).resolve().parent.parent / "gitpulse_local.db"
+        bundled_db = Path(__file__).resolve().parent.parent / "gitpulse_local.db"
+
+        # In serverless environments (e.g. Vercel, AWS Lambda) or when the application directory
+        # is read-only, SQLite cannot create lock/journal files in /var/task.
+        # We ensure SQLite operates on a writable path (/tmp/gitpulse_local.db).
+        import os
+        import shutil
+        import tempfile
+
+        is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+        is_readonly = not os.access(str(bundled_db.parent), os.W_OK)
+
+        if is_serverless or is_readonly:
+            writable_db = Path(tempfile.gettempdir()) / "gitpulse_local.db"
+            if bundled_db.exists() and not writable_db.exists():
+                try:
+                    shutil.copy2(str(bundled_db), str(writable_db))
+                    logger.info(
+                        "Restored bundled SQLite warehouse into writable path at %s (%d bytes)",
+                        writable_db,
+                        writable_db.stat().st_size,
+                    )
+                except Exception as copy_err:
+                    logger.warning("Could not copy bundled DB to writable path: %s", copy_err)
+            db_file = writable_db if writable_db.exists() else bundled_db
+        else:
+            db_file = bundled_db
+
         fallback_url = f"sqlite:///{db_file}"
         logger.info(
             "PostgreSQL server unreachable at %s (%s). Falling back to local standalone SQLite warehouse at %s.",
             url.split("@")[-1] if "@" in url else url,
             exc,
-            db_file.name,
+            db_file,
         )
         engine_kwargs.update({
             "connect_args": {"check_same_thread": False},
