@@ -534,6 +534,120 @@ def create_pipeline_latency_chart(
     return fig
 
 
+def create_repository_issue_distribution_chart(
+    repo_names: List[str],
+    open_counts: List[int],
+    closed_counts: List[int],
+) -> go.Figure:
+    """Grouped bar chart showing open vs closed issue volume per repository."""
+    if not repo_names:
+        return _empty_figure("No repository issue telemetry available")
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(
+            x=repo_names,
+            y=open_counts,
+            name="Open Issues",
+            marker=dict(color=_ROSE, line=dict(color="#070c18", width=0.5)),
+        )
+    )
+    fig.add_trace(
+        go.Bar(
+            x=repo_names,
+            y=closed_counts,
+            name="Closed Issues",
+            marker=dict(color=_CYAN, line=dict(color="#070c18", width=0.5)),
+        )
+    )
+    fig.update_layout(
+        **_layout(
+            barmode="group",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            yaxis=dict(title="Issue Count", gridcolor="#1e293b"),
+            xaxis=dict(gridcolor="#1e293b"),
+        )
+    )
+    return fig
+
+
+def create_issue_label_distribution_chart(
+    labels: List[str],
+    counts: List[int],
+) -> go.Figure:
+    """Horizontal bar chart showing issue volume broken down by labels/categories."""
+    if not labels:
+        return _empty_figure("No labeled issue categories available")
+
+    # Distinct vibrant palette for label categories
+    palette = [_AMBER, _CYAN, _PURPLE, _ROSE, _BLUE, _GREEN, "#38bdf8", "#fb7185", "#34d399", "#a78bfa"]
+    bar_colors = [palette[i % len(palette)] for i in range(len(labels))]
+
+    fig = go.Figure(
+        go.Bar(
+            x=counts,
+            y=labels,
+            orientation="h",
+            marker=dict(color=bar_colors, line=dict(color="#070c18", width=0.5)),
+            text=counts,
+            textposition="auto",
+        )
+    )
+    fig.update_layout(
+        **_layout(
+            yaxis=dict(autorange="reversed", gridcolor="#1e293b"),
+            xaxis=dict(title="Issues Count", gridcolor="#1e293b"),
+            margin=dict(l=10, r=20, t=10, b=30),
+        )
+    )
+    return fig
+
+
+def create_issue_velocity_chart(
+    periods: List[str],
+    opened_counts: List[int],
+    closed_counts: List[int],
+) -> go.Figure:
+    """Dual-series timeline tracking issue creation vs resolution velocity."""
+    if not periods:
+        return _empty_figure("No timeline velocity data")
+
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=periods,
+            y=opened_counts,
+            name="Issues Created",
+            mode="lines+markers",
+            line=dict(color=_ROSE, width=2.5, shape="spline"),
+            marker=dict(size=4, color=_ROSE),
+            fill="tozeroy",
+            fillcolor="rgba(244,63,94,0.10)",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=periods,
+            y=closed_counts,
+            name="Issues Resolved",
+            mode="lines+markers",
+            line=dict(color=_CYAN, width=2.5, shape="spline"),
+            marker=dict(size=4, color=_CYAN),
+            fill="tozeroy",
+            fillcolor="rgba(56,189,248,0.10)",
+        )
+    )
+    fig.update_layout(
+        **_layout(
+            hovermode="x unified",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            yaxis=dict(title="Issues per Interval", gridcolor="#1e293b"),
+            xaxis=dict(gridcolor="#1e293b"),
+        )
+    )
+    return fig
+
+
 def _empty_figure(message: str) -> go.Figure:
     fig = go.Figure()
     fig.add_annotation(

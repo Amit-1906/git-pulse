@@ -129,10 +129,14 @@ class AnalyticsService(BaseService):
                 pass
         stmt = stmt.order_by(Commit.author_date.desc()).limit(limit)
         commits = db.scalars(stmt).all()
+        repos = db.scalars(select(Repository)).all()
+        repo_map = {r.id: r.full_name for r in repos}
         return [
             {
                 "id": c.id,
                 "repository_id": c.repository_id,
+                "repository_name": repo_map.get(c.repository_id, "Unknown"),
+                "repository_full_name": repo_map.get(c.repository_id, "Unknown"),
                 "sha": c.sha,
                 "author_name": c.author_name,
                 "author_email": c.author_email,
@@ -171,6 +175,8 @@ class AnalyticsService(BaseService):
                 pass
         stmt = stmt.order_by(PullRequest.created_at_gh.desc()).limit(limit)
         prs = db.scalars(stmt).all()
+        repos = db.scalars(select(Repository)).all()
+        repo_map = {r.id: r.full_name for r in repos}
         results = []
         for pr in prs:
             merged_time_hours = None
@@ -182,6 +188,8 @@ class AnalyticsService(BaseService):
                 {
                     "id": pr.id,
                     "repository_id": pr.repository_id,
+                    "repository_name": repo_map.get(pr.repository_id, "Unknown"),
+                    "repository_full_name": repo_map.get(pr.repository_id, "Unknown"),
                     "github_id": pr.github_id,
                     "number": pr.number,
                     "title": pr.title,
@@ -227,6 +235,8 @@ class AnalyticsService(BaseService):
                 pass
         stmt = stmt.order_by(Issue.created_at_gh.desc()).limit(limit)
         issues = db.scalars(stmt).all()
+        repos = db.scalars(select(Repository)).all()
+        repo_map = {r.id: r.full_name for r in repos}
         results = []
         for issue in issues:
             resolution_days = None
@@ -238,6 +248,8 @@ class AnalyticsService(BaseService):
                 {
                     "id": issue.id,
                     "repository_id": issue.repository_id,
+                    "repository_name": repo_map.get(issue.repository_id, "Unknown"),
+                    "repository_full_name": repo_map.get(issue.repository_id, "Unknown"),
                     "github_id": issue.github_id,
                     "number": issue.number,
                     "title": issue.title,

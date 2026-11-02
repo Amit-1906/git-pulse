@@ -78,6 +78,10 @@ async def lifespan(app: FastAPI):
         try:
             Base.metadata.create_all(bind=engine)
             logger.info("Database schema validated and synchronized successfully.")
+            from app.database import SessionLocal
+            from app.services.seed_service import auto_seed_if_empty
+            with SessionLocal() as db_session:
+                auto_seed_if_empty(db_session)
         except Exception as exc:
             logger.warning("Database schema synchronization warning: %s", exc)
     else:
